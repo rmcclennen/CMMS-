@@ -2,7 +2,7 @@ import { Link, useRouterState } from "@tanstack/react-router";
 import { useNavigate } from "@tanstack/react-router";
 import { useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
-import { useSessionUser, clearStoredPreviewUser } from "@/hooks/use-session-user";
+import { useSessionUser } from "@/hooks/use-session-user";
 import { Button } from "@/components/ui/button";
 import { NotificationBell } from "@/components/notification-bell";
 
@@ -41,14 +41,9 @@ export function AppShell({ children }: { children: ReactNode }) {
   const pathname = useRouterState({ select: (s) => s.location.pathname });
 
   async function signOut() {
-    clearStoredPreviewUser();
     await queryClient.cancelQueries();
     queryClient.clear();
-    try {
-      await supabase.auth.signOut();
-    } catch {
-      // ignore
-    }
+    await supabase.auth.signOut();
     navigate({ to: "/auth", replace: true });
   }
 

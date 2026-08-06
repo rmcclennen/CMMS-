@@ -4,7 +4,7 @@ build me a app that will have my wastewater plant assets, pm schedule, the abili
 
 This project was built with [Lovable](https://lovable.dev).
 
-**Live app**: https://assetcareconnect.app
+**Live app**: https://cmmscord-ai.lovable.app
 
 ## Build with Lovable
 

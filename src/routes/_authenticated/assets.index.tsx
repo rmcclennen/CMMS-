@@ -47,7 +47,6 @@ export const Route = createFileRoute("/_authenticated/assets/")({
 function AssetsPage() {
   const [search, setSearch] = useState("");
   const [cls, setCls] = useState("all");
-  const [status, setStatus] = useState("active");
   const [building, setBuilding] = useState("all");
   const [page, setPage] = useState(0);
 
@@ -70,17 +69,13 @@ function AssetsPage() {
     },
   });
 
-  const all = useMemo(() => assets.data ?? [], [assets.data]);
+  const all = assets.data ?? [];
 
   const buildingCounts = useMemo(() => {
     const counts = new Map<string, number>();
-    for (const a of all) {
-      if (status === "active" && a.status === "decommissioned") continue;
-      if (status === "decommissioned" && a.status !== "decommissioned") continue;
-      counts.set(a.building, (counts.get(a.building) ?? 0) + 1);
-    }
+    for (const a of all) counts.set(a.building, (counts.get(a.building) ?? 0) + 1);
     return counts;
-  }, [all, status]);
+  }, [all]);
 
   const buildingTabs = useMemo(
     () =>
@@ -93,8 +88,6 @@ function AssetsPage() {
   const filtered = useMemo(() => {
     const term = search.trim().toLowerCase();
     return all.filter((a) => {
-      if (status === "active" && a.status === "decommissioned") return false;
-      if (status === "decommissioned" && a.status !== "decommissioned") return false;
       if (building !== "all" && a.building !== building) return false;
       if (cls !== "all" && a.class !== cls) return false;
       if (!term) return true;
@@ -102,7 +95,7 @@ function AssetsPage() {
         .filter(Boolean)
         .some((v) => String(v).toLowerCase().includes(term));
     });
-  }, [all, search, cls, building, status]);
+  }, [all, search, cls, building]);
 
   const total = filtered.length;
   const maxPage = Math.max(0, Math.ceil(total / PAGE_SIZE) - 1);
@@ -142,7 +135,7 @@ function AssetsPage() {
             setPage(0);
           }}
         >
-          <SelectTrigger className="w-48">
+          <SelectTrigger className="w-52">
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
@@ -152,22 +145,6 @@ function AssetsPage() {
                 {CLASS_LABELS[c]}
               </SelectItem>
             ))}
-          </SelectContent>
-        </Select>
-        <Select
-          value={status}
-          onValueChange={(v) => {
-            setStatus(v);
-            setPage(0);
-          }}
-        >
-          <SelectTrigger className="w-48">
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="active">Active Equipment</SelectItem>
-            <SelectItem value="all">All Statuses</SelectItem>
-            <SelectItem value="decommissioned">Decommissioned</SelectItem>
           </SelectContent>
         </Select>
         <span className="font-mono text-xs text-muted-foreground">{total} assets</span>
@@ -181,10 +158,10 @@ function AssetsPage() {
         }}
       >
         <TabsList className="flex h-auto w-full flex-wrap justify-start gap-1">
-          <TabsTrigger value="all">All ({filtered.length})</TabsTrigger>
+          <TabsTrigger value="all">All ({all.length})</TabsTrigger>
           {buildingTabs.map((b) => (
             <TabsTrigger key={b} value={b}>
-              {b} ({buildingCounts.get(b) ?? 0})
+              {b} ({buildingCounts.get(b)})
             </TabsTrigger>
           ))}
         </TabsList>
@@ -195,7 +172,6 @@ function AssetsPage() {
           <TableHeader>
             <TableRow>
               <TableHead>Asset</TableHead>
-              <TableHead>Status</TableHead>
               <TableHead>Building / Area</TableHead>
               <TableHead>Class</TableHead>
               <TableHead>Make / Model</TableHead>
@@ -223,20 +199,6 @@ function AssetsPage() {
                     </span>
                   )}
                 </TableCell>
-                <TableCell>
-                  <Badge
-                    variant={
-                      a.status === "decommissioned"
-                        ? "destructive"
-                        : a.status === "operational"
-                          ? "outline"
-                          : "secondary"
-                    }
-                    className="capitalize text-xs"
-                  >
-                    {a.status ?? "operational"}
-                  </Badge>
-                </TableCell>
                 <TableCell className="text-sm text-muted-foreground">{a.building}</TableCell>
                 <TableCell className="text-sm text-muted-foreground">
                   {classLabel(a.class)}
@@ -263,7 +225,7 @@ function AssetsPage() {
             ))}
             {assets.isLoading && (
               <TableRow>
-                <TableCell colSpan={10} className="text-sm text-muted-foreground">
+                <TableCell colSpan={9} className="text-sm text-muted-foreground">
                   Loading assets…
                 </TableCell>
               </TableRow>

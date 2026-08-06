@@ -2,15 +2,17 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import { useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
+import { deleteTeamMember as removeTeamMember } from "@/lib/team.functions";
+
 import { useMyRoles } from "@/hooks/use-my-roles";
 import { useSessionUser } from "@/hooks/use-session-user";
-import { ROLE_OPTIONS, roleLabel, roleBadgeClass, isApproverRole, type AppRole } from "@/lib/roles";
+import { ROLE_OPTIONS, roleLabel, type AppRole } from "@/lib/roles";
 import { CARRIERS, carrierLabel, formatPhone } from "@/lib/carriers";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Checkbox } from "@/components/ui/checkbox";
 import {
   Dialog,
   DialogContent,
@@ -55,6 +57,19 @@ import {
   UserX,
   X,
 } from "lucide-react";
+
+const APPROVER_ROLE_SET: AppRole[] = ["admin", "manager", "supervisor"];
+
+function isApproverRole(role: AppRole | string) {
+  return APPROVER_ROLE_SET.includes(role as AppRole);
+}
+
+function roleBadgeClass(role: AppRole | string) {
+  if (role === "admin") return "border-destructive/40 text-destructive";
+  if (role === "manager") return "border-primary/50 text-primary";
+  if (role === "supervisor") return "border-primary/40 text-primary";
+  return "border-border text-muted-foreground";
+}
 
 export const Route = createFileRoute("/_authenticated/team")({
   head: () => ({
@@ -319,35 +334,9 @@ function TeamPage() {
     onError: (error: Error) => toast.error(error.message),
   });
 
-  // Helper to remove all related records for a user ID
+  // Full server-side removal (roles, profile, directory, and the login itself)
   const cleanUserData = async (memberId: string) => {
-    // 1. Unassign any pending/assigned PM schedules or work orders
-    try {
-      await Promise.all([
-        supabase
-          .from("pm_schedules")
-          .update({ assigned_to: null, assigned_label: null })
-          .eq("assigned_to", memberId),
-        supabase
-          .from("work_orders")
-          .update({ assigned_to: null, assigned_to_name: null })
-          .eq("assigned_to", memberId),
-      ]);
-    } catch (err) {
-      console.warn("Could not unassign work items:", err);
-    }
-
-    // 2. Remove assigned roles
-    const { error: roleError } = await supabase.from("user_roles").delete().eq("user_id", memberId);
-    if (roleError) console.warn("Error deleting roles:", roleError.message);
-
-    // 3. Remove from profiles
-    const { error: profError } = await supabase.from("profiles").delete().eq("id", memberId);
-    if (profError) console.warn("Error deleting profile:", profError.message);
-
-    // 4. Remove from team directory
-    const { error: dirError } = await supabase.from("team_directory").delete().eq("id", memberId);
-    if (dirError) throw dirError;
+    await removeTeamMember({ data: { userId: memberId } });
   };
 
   // Single Member Deletion Mutation

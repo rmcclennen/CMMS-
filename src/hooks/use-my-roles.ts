@@ -21,15 +21,10 @@ export function useMyRoles() {
   });
 
   const roles = query.data ?? [];
-  const hasExplicitRoles = roles.length > 0;
-
   return {
     roles,
     loading: query.isLoading,
-    isApprover: hasExplicitRoles ? canApproveDeletions(roles) : true,
-    canManageRoles: hasExplicitRoles ? canManageRoles(roles) : true,
-    isSupervisor: roles.includes("supervisor"),
-    isManager: roles.includes("manager"),
-    isAdmin: roles.includes("admin"),
+    isApprover: canApproveDeletions(roles),
+    canManageRoles: canManageRoles(roles),
   };
 }

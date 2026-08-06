@@ -29,35 +29,7 @@ export function canApproveDeletions(roles: AppRole[]) {
 }
 
 export function canManageRoles(roles: AppRole[]) {
-  return roles.includes("admin") || roles.includes("manager") || roles.includes("supervisor");
-}
-
-export function isApproverRole(role: AppRole | string): boolean {
-  return APPROVER_ROLES.includes(role as AppRole);
-}
-
-export function roleBadgeClass(role: AppRole | string): string {
-  switch (role) {
-    case "admin":
-      return "bg-amber-500/10 text-amber-700 dark:text-amber-300 border-amber-500/30";
-    case "manager":
-      return "bg-purple-500/10 text-purple-700 dark:text-purple-300 border-purple-500/30 font-semibold";
-    case "supervisor":
-      return "bg-blue-500/10 text-blue-700 dark:text-blue-300 border-blue-500/30 font-semibold";
-    case "lead_operator":
-      return "bg-cyan-500/10 text-cyan-700 dark:text-cyan-300 border-cyan-500/30";
-    case "operator":
-      return "bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 border-emerald-500/30";
-    case "electrician":
-      return "bg-yellow-500/10 text-yellow-700 dark:text-yellow-400 border-yellow-500/30";
-    case "maintenance":
-      return "bg-orange-500/10 text-orange-700 dark:text-orange-300 border-orange-500/30";
-    case "technician":
-      return "bg-teal-500/10 text-teal-700 dark:text-teal-300 border-teal-500/30";
-    case "viewer":
-    default:
-      return "bg-muted text-muted-foreground border-border";
-  }
+  return roles.includes("admin") || roles.includes("manager");
 }
 
 export type DeletableEntity = "asset" | "pm_schedule" | "work_order";
