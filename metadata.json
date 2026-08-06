@@ -1,0 +1,6 @@
+{
+  "name": "CMMSCord AI - Maintenance Management & Diagnostic Intelligence",
+  "description": "Enterprise AI-powered Computerized Maintenance Management System (CMMS) featuring real-time collaborative dispatch channels, work order workflows, asset health tracking, preventive maintenance schedules, MRO inventory, and AI troubleshooting diagnostics.",
+  "requestFramePermissions": ["camera"],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
