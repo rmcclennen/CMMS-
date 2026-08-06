@@ -36,7 +36,26 @@ function AuthPage() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [fullName, setFullName] = useState("");
+  const [tab, setTab] = useState<string>("signin");
+  const [invitedRole, setInvitedRole] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      const params = new URLSearchParams(window.location.search);
+      const inviteParam = params.get("invite");
+      const emailParam = params.get("email");
+      const nameParam = params.get("name");
+      const roleParam = params.get("role");
+
+      if (emailParam) setEmail(emailParam);
+      if (nameParam) setFullName(nameParam);
+      if (roleParam) setInvitedRole(roleParam);
+      if (inviteParam === "1" || (emailParam && !params.has("signin"))) {
+        setTab("signup");
+      }
+    }
+  }, []);
 
   useEffect(() => {
     const { data: sub } = supabase.auth.onAuthStateChange((_e, session) => {
@@ -63,7 +82,7 @@ function AuthPage() {
     if (error) {
       toast.error(error.message);
     } else if (!data.session) {
-      toast.success("Check your email to confirm your account.");
+      toast.success("Account created! Check your email to confirm if required or sign in.");
     }
   }
 
@@ -97,6 +116,17 @@ function AuthPage() {
 
       <div className="flex items-center justify-center p-6">
         <div className="w-full max-w-sm panel p-6">
+          {invitedRole && (
+            <div className="mb-4 rounded-lg border border-primary/30 bg-primary/10 p-3 text-xs">
+              <p className="font-semibold text-primary">Team Access Invitation</p>
+              <p className="mt-0.5 text-muted-foreground">
+                You've been invited as{" "}
+                <strong className="text-foreground">{invitedRole.replace(/_/g, " ")}</strong>.
+                Create your password to activate your plant workspace access.
+              </p>
+            </div>
+          )}
+
           <h2 className="text-lg font-semibold">Team access</h2>
           <p className="mt-1 text-sm text-muted-foreground">
             Sign in to your plant maintenance account.
@@ -114,6 +144,7 @@ function AuthPage() {
               onClick={() => {
                 setEmail("demo@cmmscord.ai");
                 setPassword("CMMSdemo2026!");
+                setTab("signin");
               }}
             >
               Fill demo credentials
@@ -130,7 +161,7 @@ function AuthPage() {
             <div className="h-px flex-1 bg-border" />
           </div>
 
-          <Tabs defaultValue="signin">
+          <Tabs value={tab} onValueChange={setTab}>
             <TabsList className="w-full">
               <TabsTrigger value="signin" className="flex-1">
                 Sign in
