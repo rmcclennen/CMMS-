@@ -14,7 +14,7 @@ import { Check, ShieldCheck, X } from "lucide-react";
 export const Route = createFileRoute("/_authenticated/approvals")({
   head: () => ({
     meta: [
-      { title: "Deletion Approvals | CMMSCord AI" },
+      { title: "Deletion Approvals | AssetCareConnect" },
       {
         name: "description",
         content:

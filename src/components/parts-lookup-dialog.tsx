@@ -28,7 +28,16 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { toast } from "sonner";
-import { Boxes, ExternalLink, PackageSearch, Send } from "lucide-react";
+import {
+  AlertTriangle,
+  Boxes,
+  ExternalLink,
+  PackageSearch,
+  Plus,
+  RefreshCw,
+  Send,
+  Trash2,
+} from "lucide-react";
 
 type Part = PartsLookupResult["parts"][number];
 
@@ -84,10 +93,18 @@ export function PartsLookupDialog({
 }) {
   const [open, setOpen] = useState(false);
   const [need, setNeed] = useState("");
+  const [feedback, setFeedback] = useState("");
+  const [showFeedback, setShowFeedback] = useState(false);
   const [selected, setSelected] = useState<Record<string, boolean>>({});
   const [recipient, setRecipient] = useState<string>("none");
   const [neededBy, setNeededBy] = useState("");
   const [photos, setPhotos] = useState<File[]>([]);
+
+  // Add custom part inline state
+  const [isAddingCustom, setIsAddingCustom] = useState(false);
+  const [customName, setCustomName] = useState("");
+  const [customPartNumber, setCustomPartNumber] = useState("");
+  const [customNotes, setCustomNotes] = useState("");
 
   const [result, setResult] = useState<PartsLookupResult | null>(null);
   const queryClient = useQueryClient();
@@ -97,16 +114,71 @@ export function PartsLookupDialog({
   const asset = workOrder.asset;
 
   const lookup = useMutation({
-    mutationFn: async () => {
+    mutationFn: async (correctionNotes?: string) => {
       if (!asset) throw new Error("Attach an asset to this work order first.");
-      return runLookup({ data: { assetId: asset.id, need: need.trim() || workOrder.title } });
+      return runLookup({
+        data: {
+          assetId: asset.id,
+          need: need.trim() || workOrder.title,
+          feedback: correctionNotes || feedback || undefined,
+        },
+      });
     },
     onSuccess: (data) => {
       setResult(data);
       setSelected(Object.fromEntries(data.parts.map((_, i) => [String(i), true])));
+      setShowFeedback(false);
+      if (feedback.trim()) {
+        toast.success("Parts list updated with your corrections");
+      }
     },
     onError: (error: Error) => toast.error(error.message),
   });
+
+  const handleDeletePart = (index: number) => {
+    if (!result) return;
+    const removedPart = result.parts[index];
+    const newParts = result.parts.filter((_, i) => i !== index);
+    setResult({
+      ...result,
+      parts: newParts,
+    });
+    const newSelected: Record<string, boolean> = {};
+    newParts.forEach((_, i) => {
+      newSelected[String(i)] = true;
+    });
+    setSelected(newSelected);
+    toast.success(`Removed "${removedPart?.name || "Part"}" from list`);
+  };
+
+  const handleAddCustomPart = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!customName.trim()) {
+      toast.error("Part name is required");
+      return;
+    }
+    const newPart: Part = {
+      name: customName.trim(),
+      part_number: customPartNumber.trim() || undefined,
+      manufacturer: asset?.manufacturer || "OEM",
+      qty: "1",
+      where_to_buy: customNotes.trim() || undefined,
+    };
+    const currentParts = result?.parts || [];
+    const newParts = [...currentParts, newPart];
+    const newResult: PartsLookupResult = {
+      notes: result?.notes || `Parts list for ${asset?.name || "equipment"}`,
+      parts: newParts,
+      sources: result?.sources || [],
+    };
+    setResult(newResult);
+    setSelected((prev) => ({ ...prev, [String(newParts.length - 1)]: true }));
+    setIsAddingCustom(false);
+    setCustomName("");
+    setCustomPartNumber("");
+    setCustomNotes("");
+    toast.success(`Added "${newPart.name}"`);
+  };
 
   const chosen = (result?.parts ?? []).filter((_, i) => selected[String(i)]);
 
@@ -148,13 +220,24 @@ export function PartsLookupDialog({
       if (error) throw error;
 
       if (recipient !== "none") {
+        const routeTo =
+          recipient === "supervisors" || recipient === "coordinator" || recipient === "supervisor"
+            ? "supervisors"
+            : "person";
+        const sentTo =
+          recipient === "supervisors" || recipient === "coordinator" || recipient === "supervisor"
+            ? null
+            : recipient;
+
         await createPartRequest({
           title: `WO-${workOrder.wo_number} — ${workOrder.title}`,
           partLines: lines,
-          note: asset ? `Asset: ${asset.name}` : null,
+          note: asset
+            ? `Asset: ${asset.name}${recipient === "coordinator" ? " [Routed to CMMS Coordinator]" : recipient === "supervisor" ? " [Routed to Supervisor]" : ""}`
+            : null,
           neededBy: neededBy || null,
-          routeTo: recipient === "supervisors" ? "supervisors" : "person",
-          sentTo: recipient === "supervisors" ? null : recipient,
+          routeTo,
+          sentTo,
           workOrderId: workOrder.id,
           assetId: asset?.id ?? null,
           photos,
@@ -165,9 +248,13 @@ export function PartsLookupDialog({
       toast.success(
         recipient === "none"
           ? "Parts attached to the work order"
-          : recipient === "supervisors"
-            ? "Sent to supervisors to order or bid out"
-            : "Parts attached and request sent",
+          : recipient === "coordinator"
+            ? "Parts request sent to CMMS Coordinator / Procurement Lead"
+            : recipient === "supervisor"
+              ? "Parts request sent to Maintenance Supervisor"
+              : recipient === "supervisors"
+                ? "Sent to all supervisors and CMMS buyers to order or bid out"
+                : "Parts attached and request sent to teammate",
       );
       queryClient.invalidateQueries({ queryKey: ["work-orders"] });
       queryClient.invalidateQueries({ queryKey: ["notifications"] });
@@ -176,6 +263,8 @@ export function PartsLookupDialog({
       setResult(null);
       setPhotos([]);
       setNeededBy("");
+      setFeedback("");
+      setShowFeedback(false);
     },
     onError: (error: Error) => toast.error(error.message),
   });
@@ -194,7 +283,7 @@ export function PartsLookupDialog({
           <DialogTitle>Parts lookup — WO-{workOrder.wo_number}</DialogTitle>
           <DialogDescription>
             {asset
-              ? `Find replacement parts for ${asset.name}, then send the list to whoever orders parts.`
+              ? `Find replacement parts for ${asset.name}, remove incorrect items, or send the list to whoever orders parts.`
               : "This work order has no asset attached, so parts can't be looked up."}
           </DialogDescription>
         </DialogHeader>
@@ -208,7 +297,7 @@ export function PartsLookupDialog({
               value={need}
               onChange={(e) => setNeed(e.target.value)}
             />
-            <Button onClick={() => lookup.mutate()} disabled={!asset || lookup.isPending}>
+            <Button onClick={() => lookup.mutate(undefined)} disabled={!asset || lookup.isPending}>
               {lookup.isPending ? "Searching…" : "Look up parts"}
             </Button>
           </div>
@@ -216,7 +305,117 @@ export function PartsLookupDialog({
 
         {result && (
           <div className="space-y-4">
-            {result.notes && <p className="text-xs text-muted-foreground">{result.notes}</p>}
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              {result.notes && (
+                <p className="text-xs text-muted-foreground flex-1">{result.notes}</p>
+              )}
+              <div className="flex items-center gap-1.5">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="h-7 text-xs gap-1"
+                  onClick={() => setIsAddingCustom(!isAddingCustom)}
+                >
+                  <Plus className="size-3" /> Add part
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="h-7 text-xs gap-1 text-amber-600 dark:text-amber-400 hover:bg-amber-500/10"
+                  onClick={() => setShowFeedback(!showFeedback)}
+                >
+                  <AlertTriangle className="size-3" />
+                  {showFeedback ? "Hide correction" : "Not the right parts?"}
+                </Button>
+              </div>
+            </div>
+
+            {showFeedback && (
+              <div className="rounded-lg border border-amber-500/30 bg-amber-500/10 p-3 space-y-2 text-xs">
+                <p className="font-semibold text-amber-900 dark:text-amber-200">
+                  Tell the program what parts are needed or what's different:
+                </p>
+                <Input
+                  placeholder="e.g. This is the 2.5 inch shaft variant with mechanical packing, not mechanical seal"
+                  value={feedback}
+                  onChange={(e) => setFeedback(e.target.value)}
+                  className="h-8 text-xs bg-background"
+                />
+                <div className="flex justify-end gap-2">
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="h-7 text-xs"
+                    onClick={() => setShowFeedback(false)}
+                  >
+                    Cancel
+                  </Button>
+                  <Button
+                    size="sm"
+                    className="h-7 text-xs gap-1"
+                    disabled={lookup.isPending || !feedback.trim()}
+                    onClick={() => lookup.mutate(feedback)}
+                  >
+                    <RefreshCw className={`size-3 ${lookup.isPending ? "animate-spin" : ""}`} />
+                    {lookup.isPending ? "Searching…" : "Re-search with corrections"}
+                  </Button>
+                </div>
+              </div>
+            )}
+
+            {isAddingCustom && (
+              <form
+                onSubmit={handleAddCustomPart}
+                className="rounded-lg border border-primary/30 bg-primary/5 p-3 space-y-2 text-xs"
+              >
+                <p className="font-bold text-primary">Add Custom Part</p>
+                <div className="grid gap-2 sm:grid-cols-2">
+                  <div>
+                    <Label className="text-xs">Part Name *</Label>
+                    <Input
+                      placeholder="e.g. Replacement Impeller"
+                      value={customName}
+                      onChange={(e) => setCustomName(e.target.value)}
+                      className="h-8 text-xs mt-1"
+                      required
+                    />
+                  </div>
+                  <div>
+                    <Label className="text-xs">Part Number / OEM Spec</Label>
+                    <Input
+                      placeholder="e.g. IMP-4890-SS"
+                      value={customPartNumber}
+                      onChange={(e) => setCustomPartNumber(e.target.value)}
+                      className="h-8 text-xs font-mono mt-1"
+                    />
+                  </div>
+                </div>
+                <div>
+                  <Label className="text-xs">Supplier / Specs (Optional)</Label>
+                  <Input
+                    placeholder="e.g. Grainger / Motion Industries / 316 Stainless"
+                    value={customNotes}
+                    onChange={(e) => setCustomNotes(e.target.value)}
+                    className="h-8 text-xs mt-1"
+                  />
+                </div>
+                <div className="flex justify-end gap-2 pt-1">
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    className="h-7 text-xs"
+                    onClick={() => setIsAddingCustom(false)}
+                  >
+                    Cancel
+                  </Button>
+                  <Button type="submit" size="sm" className="h-7 text-xs">
+                    Add Part to List
+                  </Button>
+                </div>
+              </form>
+            )}
+
             <div className="panel divide-y divide-border">
               {result.parts.map((part, i) => {
                 const vendor = vendorUrl(part, asset?.manufacturer_url ?? null);
@@ -262,12 +461,21 @@ export function PartsLookupDialog({
                         )}
                       </div>
                     </div>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="size-7 text-muted-foreground hover:bg-destructive/10 hover:text-destructive shrink-0"
+                      onClick={() => handleDeletePart(i)}
+                      title="Delete / remove this part (not right for this asset)"
+                    >
+                      <Trash2 className="size-3.5" />
+                    </Button>
                   </div>
                 );
               })}
               {result.parts.length === 0 && (
                 <p className="p-3 text-sm text-muted-foreground">
-                  No parts identified for this request.
+                  No parts in this list. Click "Add part" or refine your search above.
                 </p>
               )}
             </div>
@@ -293,12 +501,16 @@ export function PartsLookupDialog({
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="none">Just save to work order</SelectItem>
+                    <SelectItem value="coordinator">
+                      🎯 CMMS Coordinator / Procurement Lead
+                    </SelectItem>
+                    <SelectItem value="supervisor">👷 Maintenance / Shift Supervisor</SelectItem>
                     <SelectItem value="supervisors">
-                      Supervisors / CMMS buyers (order or bid out)
+                      📢 All Supervisors &amp; CMMS Buyers
                     </SelectItem>
                     {(team.data ?? []).map((m) => (
                       <SelectItem key={m.id} value={m.id}>
-                        {memberLabel(m)}
+                        👤 {memberLabel(m)}
                       </SelectItem>
                     ))}
                   </SelectContent>

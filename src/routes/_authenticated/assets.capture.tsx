@@ -24,17 +24,17 @@ import { ArrowLeft, Camera, Loader2, Save, Sparkles, X } from "lucide-react";
 export const Route = createFileRoute("/_authenticated/assets/capture")({
   head: () => ({
     meta: [
-      { title: "Capture Equipment Photo — CMMSCord AI" },
+      { title: "Capture Equipment Photo — AssetCareConnect" },
       {
         name: "description",
         content:
-          "Photograph a piece of plant equipment and its nameplate to add it to the CMMSCord AI asset register automatically.",
+          "Photograph a piece of plant equipment and its nameplate to add it to the AssetCareConnect asset register automatically.",
       },
-      { property: "og:title", content: "Capture Equipment Photo — CMMSCord AI" },
+      { property: "og:title", content: "Capture Equipment Photo — AssetCareConnect" },
       {
         property: "og:description",
         content:
-          "Snap an equipment nameplate and let CMMSCord AI read the make, model and serial into your register.",
+          "Snap an equipment nameplate and let AssetCareConnect read the make, model and serial into your register.",
       },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary_large_image" },

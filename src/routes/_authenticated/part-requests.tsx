@@ -34,13 +34,14 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { PartRequestBids } from "@/components/part-request-bids";
+import { SendPartsDialog } from "@/components/send-parts-dialog";
 import { toast } from "sonner";
-import { PackageSearch, ShoppingCart } from "lucide-react";
+import { PackagePlus, PackageSearch, Send, ShoppingCart } from "lucide-react";
 
 export const Route = createFileRoute("/_authenticated/part-requests")({
   head: () => ({
     meta: [
-      { title: "Parts Requests | CMMSCord AI" },
+      { title: "Parts Requests | AssetCareConnect" },
       {
         name: "description",
         content:
@@ -270,14 +271,24 @@ function PartRequestsPage() {
         <div>
           <h1 className="text-2xl font-semibold tracking-tight">Parts Requests</h1>
           <p className="text-sm text-muted-foreground">
-            Parts sent to supervisors and CMMS buyers to be ordered or bid out — photos included.
+            Parts sent to supervisors and CMMS coordinators to be ordered or bid out — photos
+            included.
           </p>
         </div>
-        <Button variant="outline" asChild>
-          <Link to="/work-orders">
-            <PackageSearch className="size-4" /> Request from a work order
-          </Link>
-        </Button>
+        <div className="flex items-center gap-2">
+          <SendPartsDialog
+            trigger={
+              <Button className="gap-1.5 font-bold shadow-sm">
+                <PackagePlus className="size-4" /> Send parts to supervisor / coordinator
+              </Button>
+            }
+          />
+          <Button variant="outline" asChild>
+            <Link to="/work-orders">
+              <PackageSearch className="size-4" /> From work order
+            </Link>
+          </Button>
+        </div>
       </header>
 
       <Tabs value={tab} onValueChange={setTab}>
@@ -312,7 +323,13 @@ function PartRequestsPage() {
                     r.assets?.name,
                     r.work_orders ? `WO-${r.work_orders.wo_number}` : null,
                     r.needed_by ? `Needed by ${r.needed_by}` : null,
-                    r.route_to === "supervisors" ? "Sent to supervisors" : "Sent to a teammate",
+                    r.route_to === "coordinator"
+                      ? "Sent to CMMS coordinator"
+                      : r.route_to === "supervisor"
+                        ? "Sent to supervisor"
+                        : r.route_to === "supervisors"
+                          ? "Sent to all supervisors & coordinators"
+                          : "Sent to a teammate",
                     new Date(r.created_at).toLocaleDateString(),
                   ]
                     .filter(Boolean)

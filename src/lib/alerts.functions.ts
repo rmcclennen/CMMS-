@@ -60,16 +60,16 @@ export const sendAssignmentAlert = createServerFn({ method: "POST" })
       const isSms = target.channel === "sms";
       const text = isSms
         ? truncateForSms(`${data.title}${data.body ? ` — ${data.body}` : ""} ${url}`)
-        : `${data.body || data.title}\n\nOpen in CMMSCord AI: ${url}`;
+        : `${data.body || data.title}\n\nOpen in AssetCareConnect: ${url}`;
       const outcome = await dispatchMessage({
         to: target.to,
         channel: target.channel,
         // Carrier gateways prepend the subject to the text body, so keep it empty-ish there.
-        subject: isSms ? "CMMSCord AI" : data.title,
+        subject: isSms ? "AssetCareConnect" : data.title,
         text,
         html: `<p style="font-family:Arial,sans-serif;font-size:14px;color:#111"><strong>${escapeHtml(
           data.title,
-        )}</strong><br/>${escapeHtml(data.body)}</p><p style="font-family:Arial,sans-serif;font-size:14px"><a href="${url}">Open in CMMSCord AI</a></p>`,
+        )}</strong><br/>${escapeHtml(data.body)}</p><p style="font-family:Arial,sans-serif;font-size:14px"><a href="${url}">Open in AssetCareConnect</a></p>`,
         idempotencyKey: `${data.eventKey}-${target.channel}-${data.recipientUserId}`,
       });
       results.push(

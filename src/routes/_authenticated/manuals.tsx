@@ -19,7 +19,7 @@ import { ExternalLink, FileText, Plus, Search, Trash2 } from "lucide-react";
 export const Route = createFileRoute("/_authenticated/manuals")({
   head: () => ({
     meta: [
-      { title: "Manuals | CMMSCord AI" },
+      { title: "Manuals | AssetCareConnect" },
       {
         name: "description",
         content:

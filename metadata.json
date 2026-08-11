@@ -1,6 +1,6 @@
 {
-  "name": "CMMSCord AI - Maintenance Management & Diagnostic Intelligence",
-  "description": "Enterprise AI-powered Computerized Maintenance Management System (CMMS) featuring real-time collaborative dispatch channels, work order workflows, asset health tracking, preventive maintenance schedules, MRO inventory, and AI troubleshooting diagnostics.",
+  "name": "AssetCareConnect - Maintenance Management & Asset Operations",
+  "description": "Enterprise Computerized Maintenance Management System (CMMS) & asset care platform with bulk asset onboarding, PM scheduling, MRO inventory, work orders, and ADA-compliant accessibility.",
   "requestFramePermissions": ["camera"],
   "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
 }

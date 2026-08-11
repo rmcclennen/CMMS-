@@ -24,7 +24,7 @@ import { Plus, Search } from "lucide-react";
 export const Route = createFileRoute("/_authenticated/work-orders")({
   head: () => ({
     meta: [
-      { title: "Work Orders | CMMSCord AI" },
+      { title: "Work Orders | AssetCareConnect" },
       { name: "description", content: "Write, assign, and close plant maintenance work orders." },
       { property: "og:title", content: "Work Orders" },
       {

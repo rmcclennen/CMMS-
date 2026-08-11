@@ -22,7 +22,7 @@ import { MailCheck, MessageSquare, Save } from "lucide-react";
 export const Route = createFileRoute("/_authenticated/settings")({
   head: () => ({
     meta: [
-      { title: "Alert Settings | CMMSCord AI" },
+      { title: "Alert Settings | AssetCareConnect" },
       {
         name: "description",
         content:

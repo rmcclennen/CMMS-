@@ -22,14 +22,16 @@ import {
 } from "@/components/ui/table";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { classLabel, CLASS_LABELS, BUILDING_NAMES, buildingOf } from "@/lib/cmms";
-import { Camera, Search } from "lucide-react";
+import { BulkAssetUploader } from "@/components/bulk-asset-uploader";
+import { RelabelAssetDialog } from "@/components/relabel-asset-dialog";
+import { Camera, Pencil, Search, Tag, UploadCloud } from "lucide-react";
 
 const PAGE_SIZE = 50;
 
 export const Route = createFileRoute("/_authenticated/assets/")({
   head: () => ({
     meta: [
-      { title: "Plant Assets | CMMSCord AI" },
+      { title: "Plant Assets | AssetCareConnect" },
       {
         name: "description",
         content: "Searchable register of every wastewater plant asset with nameplate data.",
@@ -49,6 +51,7 @@ function AssetsPage() {
   const [cls, setCls] = useState("all");
   const [building, setBuilding] = useState("all");
   const [page, setPage] = useState(0);
+  const [importOpen, setImportOpen] = useState(false);
 
   const assets = useQuery({
     queryKey: ["assets-all"],
@@ -69,7 +72,7 @@ function AssetsPage() {
     },
   });
 
-  const all = assets.data ?? [];
+  const all = useMemo(() => assets.data ?? [], [assets.data]);
 
   const buildingCounts = useMemo(() => {
     const counts = new Map<string, number>();
@@ -108,12 +111,23 @@ function AssetsPage() {
           <p className="label-caps">Asset register</p>
           <h1 className="text-2xl font-bold">Plant assets</h1>
         </div>
-        <Button asChild>
-          <Link to="/assets/capture">
-            <Camera className="size-4" /> Add by photo
-          </Link>
-        </Button>
+        <div className="flex flex-wrap items-center gap-2">
+          <Button
+            variant="outline"
+            onClick={() => setImportOpen(true)}
+            className="flex items-center gap-2 font-bold"
+          >
+            <UploadCloud className="size-4 text-primary" /> Bulk Import Spreadsheet
+          </Button>
+          <Button asChild>
+            <Link to="/assets/capture">
+              <Camera className="size-4" /> Add by photo
+            </Link>
+          </Button>
+        </div>
       </div>
+
+      <BulkAssetUploader open={importOpen} onOpenChange={setImportOpen} />
 
       <div className="panel flex flex-wrap items-center gap-3 p-3">
         <div className="relative min-w-56 flex-1">
@@ -180,6 +194,7 @@ function AssetsPage() {
               <TableHead>Supplier</TableHead>
               <TableHead>Location</TableHead>
               <TableHead>Criticality</TableHead>
+              <TableHead className="text-right">Action</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -221,11 +236,27 @@ function AssetsPage() {
                     {a.criticality}
                   </Badge>
                 </TableCell>
+                <TableCell className="text-right">
+                  <RelabelAssetDialog
+                    assetId={a.id}
+                    initialAsset={a}
+                    trigger={
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        className="h-7 px-2 text-xs font-semibold text-primary hover:bg-primary/10 gap-1"
+                        title="Relabel asset across the whole program"
+                      >
+                        <Tag className="size-3" /> Relabel
+                      </Button>
+                    }
+                  />
+                </TableCell>
               </TableRow>
             ))}
             {assets.isLoading && (
               <TableRow>
-                <TableCell colSpan={9} className="text-sm text-muted-foreground">
+                <TableCell colSpan={10} className="text-sm text-muted-foreground">
                   Loading assets…
                 </TableCell>
               </TableRow>

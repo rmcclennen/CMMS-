@@ -41,7 +41,7 @@ export async function dispatchMessage(input: {
     await sendLovableEmail(
       {
         to: input.to,
-        from: `CMMSCord AI <alerts@${domain}>`,
+        from: `AssetCareConnect <alerts@${domain}>`,
         sender_domain: domain,
         subject: input.subject,
         text: input.text,

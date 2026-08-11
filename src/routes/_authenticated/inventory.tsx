@@ -24,13 +24,14 @@ import {
 } from "@/components/ui/select";
 import { isLowStock, MOVEMENT_KINDS, recordMovement, type MovementKind } from "@/lib/inventory";
 import { prettyLabel } from "@/lib/cmms";
+import { SendPartsDialog } from "@/components/send-parts-dialog";
 import { toast } from "sonner";
-import { Boxes, ExternalLink, Plus, Search, TriangleAlert } from "lucide-react";
+import { Boxes, ExternalLink, PackagePlus, Plus, Search, Send, TriangleAlert } from "lucide-react";
 
 export const Route = createFileRoute("/_authenticated/inventory")({
   head: () => ({
     meta: [
-      { title: "Parts Inventory | CMMSCord AI" },
+      { title: "Parts Inventory | AssetCareConnect" },
       {
         name: "description",
         content:
@@ -365,7 +366,16 @@ function InventoryPage() {
           <p className="label-caps">Storeroom</p>
           <h1 className="text-2xl font-bold">Parts inventory</h1>
         </div>
-        <NewPartDialog />
+        <div className="flex items-center gap-2">
+          <SendPartsDialog
+            trigger={
+              <Button variant="outline" className="gap-1.5 font-semibold text-xs shadow-sm">
+                <Send className="size-3.5 text-primary" /> Send to coordinator / supervisor
+              </Button>
+            }
+          />
+          <NewPartDialog />
+        </div>
       </div>
 
       <div className="panel flex flex-wrap items-center gap-3 p-3">
@@ -431,7 +441,32 @@ function InventoryPage() {
             <Badge variant={isLowStock(part) ? "destructive" : "outline"}>
               {part.qty_on_hand} {part.unit}
             </Badge>
-            <MovementDialog part={part} />
+            <div className="flex items-center gap-1.5">
+              <SendPartsDialog
+                initialPart={{
+                  name: part.name,
+                  part_number: part.part_number,
+                  manufacturer: part.manufacturer,
+                  qty: isLowStock(part)
+                    ? Math.max(1, (part.reorder_point ?? 5) - part.qty_on_hand)
+                    : 1,
+                  where_to_buy: part.where_to_buy,
+                  unit_cost: part.unit_cost,
+                }}
+                trigger={
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="h-8 px-2 text-xs font-semibold text-muted-foreground hover:text-primary"
+                    title="Send part requisition to supervisor or CMMS coordinator"
+                  >
+                    <Send className="size-3.5 mr-1 text-primary" />
+                    Requisition
+                  </Button>
+                }
+              />
+              <MovementDialog part={part} />
+            </div>
           </div>
         ))}
         {parts.isLoading && <p className="p-3 text-sm text-muted-foreground">Loading parts…</p>}

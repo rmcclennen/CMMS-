@@ -20,7 +20,7 @@ import {
 export const Route = createFileRoute("/_authenticated/dashboard")({
   head: () => ({
     meta: [
-      { title: "Maintenance Calendar | CMMSCord AI" },
+      { title: "Maintenance Calendar | AssetCareConnect" },
       {
         name: "description",
         content: "Monthly calendar of preventive maintenance and work orders due dates.",
