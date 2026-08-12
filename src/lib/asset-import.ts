@@ -401,31 +401,31 @@ export async function bulkInsertAssets(
     // Optional Auto PM creation for imported assets
     if (options.generatePmSchedules && insertedAssets && insertedAssets.length > 0) {
       const pmRows = [];
-      const today = new Date().toISOString().slice(0, 10);
       const nextQuarter = new Date(Date.now() + 90 * 86400000).toISOString().slice(0, 10);
+      const nextSemiAnnual = new Date(Date.now() + 180 * 86400000).toISOString().slice(0, 10);
 
       for (const item of insertedAssets) {
         if (item.class === "PMP" || item.class === "MOT") {
           pmRows.push({
             asset_id: item.id,
             title: `Quarterly Lubrication & Vibration Inspection — ${item.name}`,
-            description:
+            tasks:
               "Check bearing temperatures, inspect mechanical seals for leakage, verify vibration within limits, and apply specified grease.",
-            frequency_days: 90,
-            due_date: nextQuarter,
-            building: item.building,
+            interval_days: 90,
+            next_due: nextQuarter,
             priority: "medium",
+            active: true,
           });
         } else {
           pmRows.push({
             asset_id: item.id,
             title: `Preventive Maintenance & Safety Check — ${item.name}`,
-            description:
+            tasks:
               "Perform routine operational inspection, check electrical connections, inspect mounting hardware, and record nameplate parameters.",
-            frequency_days: 180,
-            due_date: nextQuarter,
-            building: item.building,
+            interval_days: 180,
+            next_due: nextSemiAnnual,
             priority: "medium",
+            active: true,
           });
         }
       }
