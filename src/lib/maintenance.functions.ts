@@ -94,9 +94,11 @@ Respond strictly with valid JSON matching this schema:
     { "name": "Part name (seal, bearing, belt, filter)", "part_number": "Manufacturer part number or OEM spec", "notes": "Specs" }
   ],
   "sources": [
-    { "title": "Manual or source title", "url": "https://..." }
+    { "title": "Official OEM O&M Operation & Maintenance Manual (PDF / Portal)", "url": "https://..." },
+    { "title": "Parts Breakdown & Technical Cut Sheet", "url": "https://..." }
   ]
-}`;
+}
+Always include specific manufacturer O&M manuals or technical documentation entries in sources so operators can attach them to the asset's Manuals tab.`;
 
         const response = await ai.models.generateContent({
           model: "gemini-3.6-flash",

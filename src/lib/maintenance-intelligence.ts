@@ -546,12 +546,22 @@ export function generateComprehensiveMaintenanceData(asset: AssetData): Maintena
     ],
     sources: [
       {
-        title: `${mfg} Equipment Documentation & Support Portal`,
+        title: `${mfg} ${asset.model ? `Model ${asset.model}` : ""} Official O&M Operation & Maintenance Manual`,
+        url:
+          asset.manufacturer_url ||
+          `https://www.google.com/search?q=${encodeURIComponent(`${mfg} ${asset.model || ""} operation maintenance manual pdf`)}`,
+      },
+      {
+        title: `${mfg} ${asset.class || "Equipment"} Parts Breakdown & Cut Sheet`,
+        url: `https://www.google.com/search?q=${encodeURIComponent(`${mfg} ${asset.model || asset.name || ""} parts manual pdf`)}`,
+      },
+      {
+        title: `${mfg} Industrial Equipment Support & Technical Documentation Portal`,
         url: asset.manufacturer_url || "https://www.grainger.com/",
       },
       {
-        title: "OSHA & National Safety Council Industrial Plant Maintenance Guidelines",
-        url: "https://www.osha.gov/",
+        title: "OSHA & Water Environment Federation (WEF) Plant Maintenance Standards",
+        url: "https://www.wef.org/",
       },
     ],
   };
