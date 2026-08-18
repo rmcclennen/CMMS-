@@ -24,13 +24,13 @@ export interface MatchablePm {
 export interface PmAssetMatch {
   pmId: string;
   pmTitle: string;
-  pmTasks?: string | null;
-  currentAssetId?: string | null;
-  currentAssetName?: string | null;
+  pmTasks?: string | null | undefined;
+  currentAssetId?: string | null | undefined;
+  currentAssetName?: string | null | undefined;
   suggestedAssetId: string;
   suggestedAssetName: string;
-  suggestedAssetTag?: string | null;
-  suggestedAssetBuilding?: string | null;
+  suggestedAssetTag?: string | null | undefined;
+  suggestedAssetBuilding?: string | null | undefined;
   confidence: "high" | "medium" | "low";
   score: number;
   reason: string;
@@ -49,6 +49,113 @@ function extractTokens(s?: string | null): string[] {
     .filter((t) => t.length > 2);
 }
 
+// ---- Precomputation caches -------------------------------------------------
+// Matching is O(pms x assets). Without caching, every pair re-lowercases every
+// field and recompiles a tag regex, which locks the main thread on large plants.
+
+interface PreparedAsset {
+  name: string;
+  tag: string;
+  model: string;
+  make: string;
+  bldg: string;
+  tagRegex: RegExp | null;
+  tokens: string[];
+}
+
+interface PreparedPm {
+  title: string;
+  tasks: string;
+  combined: string;
+}
+
+interface AssetMatchIndex {
+  assets: MatchableAsset[];
+  byToken: Map<string, MatchableAsset[]>;
+}
+
+const assetCache = new WeakMap<MatchableAsset, PreparedAsset>();
+const pmCache = new WeakMap<MatchablePm, PreparedPm>();
+
+function addIndexToken(index: Map<string, MatchableAsset[]>, token: string, asset: MatchableAsset) {
+  if (token.length < 2) return;
+  const existing = index.get(token);
+  if (existing) existing.push(asset);
+  else index.set(token, [asset]);
+}
+
+function buildAssetMatchIndex(assets: MatchableAsset[]): AssetMatchIndex {
+  const byToken = new Map<string, MatchableAsset[]>();
+  for (const asset of assets) {
+    const values = [asset.name, asset.tag_number, asset.model, asset.manufacturer, asset.building];
+    const tokens = new Set<string>();
+    for (const value of values) {
+      const cleaned = cleanStr(value);
+      if (!cleaned) continue;
+      tokens.add(cleaned);
+      for (const token of cleaned.split(/[^a-z0-9-]+/)) {
+        if (token.length >= 2) tokens.add(token);
+      }
+    }
+    for (const token of tokens) addIndexToken(byToken, token, asset);
+  }
+  return { assets, byToken };
+}
+
+function candidateAssetsForPm(pm: MatchablePm, index: AssetMatchIndex): MatchableAsset[] {
+  const prepared = preparePm(pm);
+  const pmTokens = new Set(
+    prepared.combined.split(/[^a-z0-9-]+/).filter((token) => token.length >= 2),
+  );
+  const candidates = new Map<string, MatchableAsset>();
+  const buckets = [...pmTokens]
+    .map((token) => index.byToken.get(token))
+    .filter((bucket): bucket is MatchableAsset[] => Boolean(bucket?.length))
+    .sort((a, b) => a.length - b.length);
+
+  // Common words such as "pump" or a manufacturer shared by hundreds of
+  // assets are not useful candidates and recreate the all-to-all scan.
+  for (const bucket of buckets) {
+    if (bucket.length > 250) continue;
+    for (const asset of bucket) candidates.set(asset.id, asset);
+    if (candidates.size >= 250) break;
+  }
+  return [...candidates.values()];
+}
+
+function prepareAsset(asset: MatchableAsset): PreparedAsset {
+  const cached = assetCache.get(asset);
+  if (cached) return cached;
+  const tag = cleanStr(asset.tag_number);
+  const prepared: PreparedAsset = {
+    name: cleanStr(asset.name),
+    tag,
+    model: cleanStr(asset.model),
+    make: cleanStr(asset.manufacturer),
+    bldg: cleanStr(asset.building),
+    tagRegex:
+      tag && tag.length >= 2
+        ? new RegExp(
+            `(^|[^a-z0-9])${tag.replace(/[-/\\^$*+?.()|[\]{}]/g, "\\$&")}([^a-z0-9]|$)`,
+            "i",
+          )
+        : null,
+    tokens: extractTokens(asset.name),
+  };
+  assetCache.set(asset, prepared);
+  return prepared;
+}
+
+function preparePm(pm: MatchablePm): PreparedPm {
+  const cached = pmCache.get(pm);
+  if (cached) return cached;
+  const title = cleanStr(pm.title);
+  const tasks = cleanStr(pm.tasks);
+  const prepared: PreparedPm = { title, tasks, combined: `${title} ${tasks}` };
+  pmCache.set(pm, prepared);
+  return prepared;
+}
+
 /**
  * Evaluates how well a PM schedule matches a specific Asset.
  * Returns null if no relevant match is found.
@@ -57,22 +164,19 @@ export function scorePmAgainstAsset(
   pm: MatchablePm,
   asset: MatchableAsset,
 ): { score: number; confidence: "high" | "medium" | "low"; reason: string } | null {
-  const pmTitle = cleanStr(pm.title);
-  const pmTasks = cleanStr(pm.tasks);
-  const pmCombined = `${pmTitle} ${pmTasks}`;
-
-  const assetName = cleanStr(asset.name);
-  const assetTag = cleanStr(asset.tag_number);
-  const assetModel = cleanStr(asset.model);
-  const assetMake = cleanStr(asset.manufacturer);
-  const assetBldg = cleanStr(asset.building);
+  const { title: pmTitle, tasks: pmTasks, combined: pmCombined } = preparePm(pm);
+  const {
+    name: assetName,
+    tag: assetTag,
+    model: assetModel,
+    make: assetMake,
+    bldg: assetBldg,
+    tagRegex,
+    tokens: preparedTokens,
+  } = prepareAsset(asset);
 
   // 1. Exact Tag Match (Highest confidence)
-  if (assetTag && assetTag.length >= 2) {
-    const tagRegex = new RegExp(
-      `(^|[^a-z0-9])${assetTag.replace(/[-/\\^$*+?.()|[\]{}]/g, "\\$&")}([^a-z0-9]|$)`,
-      "i",
-    );
+  if (tagRegex) {
     if (tagRegex.test(pmTitle)) {
       return {
         score: 100,
@@ -119,7 +223,7 @@ export function scorePmAgainstAsset(
   }
 
   // 4. Token Overlap between Asset Name and PM Title
-  const assetTokens = extractTokens(asset.name);
+  const assetTokens = preparedTokens;
   const matchedTokens: string[] = [];
   for (const token of assetTokens) {
     // Ignore overly generic terms
@@ -140,7 +244,7 @@ export function scorePmAgainstAsset(
     }
   }
 
-  if (matchedTokens.length === 1 && matchedTokens[0].length >= 4) {
+  if (matchedTokens.length === 1 && matchedTokens[0]!.length >= 4) {
     // Single distinctive token (e.g., "schwing", "trojan", "centrifuge", "clarifier", "digester", "aeration")
     const distinctiveWords = [
       "schwing",
@@ -158,11 +262,11 @@ export function scorePmAgainstAsset(
       "chlorine",
       "uv",
     ];
-    if (distinctiveWords.some((w) => matchedTokens[0].includes(w))) {
+    if (distinctiveWords.some((w) => matchedTokens[0]!.includes(w))) {
       return {
         score: 65,
         confidence: "medium",
-        reason: `Matched specific system keyword: "${matchedTokens[0]}"`,
+        reason: `Matched specific system keyword: "${matchedTokens[0]!}"`,
       };
     }
   }
@@ -244,6 +348,61 @@ export function batchMatchPmsToAssets(
     results.push(match);
   }
 
+  return results.sort((a, b) => b.score - a.score);
+}
+
+/**
+ * Same as batchMatchPmsToAssets, but processes PMs in small chunks and yields to
+ * the browser between chunks so the UI stays responsive on large data sets.
+ */
+export async function batchMatchPmsToAssetsAsync(
+  pms: MatchablePm[],
+  assets: MatchableAsset[],
+  options: {
+    unlinkedOnly?: boolean;
+    minConfidence?: "high" | "medium" | "low";
+    chunkSize?: number;
+    onProgress?: (done: number, total: number) => void;
+    shouldCancel?: () => boolean;
+  } = {},
+): Promise<PmAssetMatch[]> {
+  const {
+    unlinkedOnly = true,
+    minConfidence = "medium",
+    chunkSize = 25,
+    onProgress,
+    shouldCancel,
+  } = options;
+
+  const candidates = unlinkedOnly ? pms.filter((p) => !p.asset_id) : pms;
+  const results: PmAssetMatch[] = [];
+  const assetIndex = buildAssetMatchIndex(assets);
+  let lastYield = performance.now();
+
+  for (let i = 0; i < candidates.length; i += 1) {
+    if (shouldCancel?.()) return [];
+
+    const pm = candidates[i];
+    if (!pm) continue;
+    const indexedCandidates = candidateAssetsForPm(pm, assetIndex);
+    const match = findBestAssetForPm(pm, indexedCandidates);
+    if (match) {
+      const passesConfidence =
+        minConfidence === "low" ||
+        match.confidence === "high" ||
+        (minConfidence === "medium" && match.confidence === "medium");
+      if (passesConfidence) results.push(match);
+    }
+
+    const shouldYield = i % chunkSize === chunkSize - 1 || performance.now() - lastYield >= 8;
+    if (shouldYield) {
+      onProgress?.(i + 1, candidates.length);
+      await new Promise((resolve) => setTimeout(resolve, 0));
+      lastYield = performance.now();
+    }
+  }
+
+  onProgress?.(candidates.length, candidates.length);
   return results.sort((a, b) => b.score - a.score);
 }
 

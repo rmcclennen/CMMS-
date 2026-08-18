@@ -12,11 +12,14 @@ import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as AuthenticatedRouteRouteImport } from './routes/_authenticated/route'
 import { Route as AuthRouteImport } from './routes/auth'
+import { Route as OverviewRouteImport } from './routes/overview'
+import { Route as PortalRouteImport } from './routes/portal'
 import { Route as AuthenticatedApprovalsRouteImport } from './routes/_authenticated/approvals'
 import { Route as AuthenticatedDashboardRouteImport } from './routes/_authenticated/dashboard'
 import { Route as AuthenticatedInventoryRouteImport } from './routes/_authenticated/inventory'
 import { Route as AuthenticatedManualsRouteImport } from './routes/_authenticated/manuals'
 import { Route as AuthenticatedPartRequestsRouteImport } from './routes/_authenticated/part-requests'
+import { Route as AuthenticatedPmDueRouteImport } from './routes/_authenticated/pm-due'
 import { Route as AuthenticatedPmScheduleRouteImport } from './routes/_authenticated/pm-schedule'
 import { Route as AuthenticatedSettingsRouteImport } from './routes/_authenticated/settings'
 import { Route as AuthenticatedTeamRouteImport } from './routes/_authenticated/team'
@@ -37,6 +40,16 @@ const AuthenticatedRouteRoute = AuthenticatedRouteRouteImport.update({
 const AuthRoute = AuthRouteImport.update({
   id: '/auth',
   path: '/auth',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const OverviewRoute = OverviewRouteImport.update({
+  id: '/overview',
+  path: '/overview',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const PortalRoute = PortalRouteImport.update({
+  id: '/portal',
+  path: '/portal',
   getParentRoute: () => rootRouteImport,
 } as any)
 const AuthenticatedApprovalsRoute = AuthenticatedApprovalsRouteImport.update({
@@ -65,6 +78,11 @@ const AuthenticatedPartRequestsRoute =
     path: '/part-requests',
     getParentRoute: () => AuthenticatedRouteRoute,
   } as any)
+const AuthenticatedPmDueRoute = AuthenticatedPmDueRouteImport.update({
+  id: '/pm-due',
+  path: '/pm-due',
+  getParentRoute: () => AuthenticatedRouteRoute,
+} as any)
 const AuthenticatedPmScheduleRoute = AuthenticatedPmScheduleRouteImport.update({
   id: '/pm-schedule',
   path: '/pm-schedule',
@@ -107,11 +125,14 @@ const AuthenticatedAssetsCaptureRoute =
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/auth': typeof AuthRoute
+  '/overview': typeof OverviewRoute
+  '/portal': typeof PortalRoute
   '/approvals': typeof AuthenticatedApprovalsRoute
   '/dashboard': typeof AuthenticatedDashboardRoute
   '/inventory': typeof AuthenticatedInventoryRoute
   '/manuals': typeof AuthenticatedManualsRoute
   '/part-requests': typeof AuthenticatedPartRequestsRoute
+  '/pm-due': typeof AuthenticatedPmDueRoute
   '/pm-schedule': typeof AuthenticatedPmScheduleRoute
   '/settings': typeof AuthenticatedSettingsRoute
   '/team': typeof AuthenticatedTeamRoute
@@ -123,11 +144,14 @@ export interface FileRoutesByFullPath {
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/auth': typeof AuthRoute
+  '/overview': typeof OverviewRoute
+  '/portal': typeof PortalRoute
   '/approvals': typeof AuthenticatedApprovalsRoute
   '/dashboard': typeof AuthenticatedDashboardRoute
   '/inventory': typeof AuthenticatedInventoryRoute
   '/manuals': typeof AuthenticatedManualsRoute
   '/part-requests': typeof AuthenticatedPartRequestsRoute
+  '/pm-due': typeof AuthenticatedPmDueRoute
   '/pm-schedule': typeof AuthenticatedPmScheduleRoute
   '/settings': typeof AuthenticatedSettingsRoute
   '/team': typeof AuthenticatedTeamRoute
@@ -141,11 +165,14 @@ export interface FileRoutesById {
   '/': typeof IndexRoute
   '/_authenticated': typeof AuthenticatedRouteRouteWithChildren
   '/auth': typeof AuthRoute
+  '/overview': typeof OverviewRoute
+  '/portal': typeof PortalRoute
   '/_authenticated/approvals': typeof AuthenticatedApprovalsRoute
   '/_authenticated/dashboard': typeof AuthenticatedDashboardRoute
   '/_authenticated/inventory': typeof AuthenticatedInventoryRoute
   '/_authenticated/manuals': typeof AuthenticatedManualsRoute
   '/_authenticated/part-requests': typeof AuthenticatedPartRequestsRoute
+  '/_authenticated/pm-due': typeof AuthenticatedPmDueRoute
   '/_authenticated/pm-schedule': typeof AuthenticatedPmScheduleRoute
   '/_authenticated/settings': typeof AuthenticatedSettingsRoute
   '/_authenticated/team': typeof AuthenticatedTeamRoute
@@ -159,11 +186,14 @@ export interface FileRouteTypes {
   fullPaths:
     | '/'
     | '/auth'
+    | '/overview'
+    | '/portal'
     | '/approvals'
     | '/dashboard'
     | '/inventory'
     | '/manuals'
     | '/part-requests'
+    | '/pm-due'
     | '/pm-schedule'
     | '/settings'
     | '/team'
@@ -175,11 +205,14 @@ export interface FileRouteTypes {
   to:
     | '/'
     | '/auth'
+    | '/overview'
+    | '/portal'
     | '/approvals'
     | '/dashboard'
     | '/inventory'
     | '/manuals'
     | '/part-requests'
+    | '/pm-due'
     | '/pm-schedule'
     | '/settings'
     | '/team'
@@ -192,11 +225,14 @@ export interface FileRouteTypes {
     | '/'
     | '/_authenticated'
     | '/auth'
+    | '/overview'
+    | '/portal'
     | '/_authenticated/approvals'
     | '/_authenticated/dashboard'
     | '/_authenticated/inventory'
     | '/_authenticated/manuals'
     | '/_authenticated/part-requests'
+    | '/_authenticated/pm-due'
     | '/_authenticated/pm-schedule'
     | '/_authenticated/settings'
     | '/_authenticated/team'
@@ -210,6 +246,8 @@ export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   AuthenticatedRouteRoute: typeof AuthenticatedRouteRouteWithChildren
   AuthRoute: typeof AuthRoute
+  OverviewRoute: typeof OverviewRoute
+  PortalRoute: typeof PortalRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -233,6 +271,20 @@ declare module '@tanstack/react-router' {
       path: '/auth'
       fullPath: '/auth'
       preLoaderRoute: typeof AuthRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/overview': {
+      id: '/overview'
+      path: '/overview'
+      fullPath: '/overview'
+      preLoaderRoute: typeof OverviewRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/portal': {
+      id: '/portal'
+      path: '/portal'
+      fullPath: '/portal'
+      preLoaderRoute: typeof PortalRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/_authenticated/approvals': {
@@ -268,6 +320,13 @@ declare module '@tanstack/react-router' {
       path: '/part-requests'
       fullPath: '/part-requests'
       preLoaderRoute: typeof AuthenticatedPartRequestsRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/pm-due': {
+      id: '/_authenticated/pm-due'
+      path: '/pm-due'
+      fullPath: '/pm-due'
+      preLoaderRoute: typeof AuthenticatedPmDueRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
     '/_authenticated/pm-schedule': {
@@ -328,6 +387,7 @@ interface AuthenticatedRouteRouteChildren {
   AuthenticatedInventoryRoute: typeof AuthenticatedInventoryRoute
   AuthenticatedManualsRoute: typeof AuthenticatedManualsRoute
   AuthenticatedPartRequestsRoute: typeof AuthenticatedPartRequestsRoute
+  AuthenticatedPmDueRoute: typeof AuthenticatedPmDueRoute
   AuthenticatedPmScheduleRoute: typeof AuthenticatedPmScheduleRoute
   AuthenticatedSettingsRoute: typeof AuthenticatedSettingsRoute
   AuthenticatedTeamRoute: typeof AuthenticatedTeamRoute
@@ -343,6 +403,7 @@ const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedInventoryRoute: AuthenticatedInventoryRoute,
   AuthenticatedManualsRoute: AuthenticatedManualsRoute,
   AuthenticatedPartRequestsRoute: AuthenticatedPartRequestsRoute,
+  AuthenticatedPmDueRoute: AuthenticatedPmDueRoute,
   AuthenticatedPmScheduleRoute: AuthenticatedPmScheduleRoute,
   AuthenticatedSettingsRoute: AuthenticatedSettingsRoute,
   AuthenticatedTeamRoute: AuthenticatedTeamRoute,
@@ -359,6 +420,8 @@ const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   AuthenticatedRouteRoute: AuthenticatedRouteRouteWithChildren,
   AuthRoute: AuthRoute,
+  OverviewRoute: OverviewRoute,
+  PortalRoute: PortalRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

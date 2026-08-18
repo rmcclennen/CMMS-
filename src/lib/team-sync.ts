@@ -109,6 +109,32 @@ export const DEFAULT_PLANT_CREW: PlantMember[] = [
 ];
 
 const LOCAL_STORAGE_CREW_KEY = "cmms_plant_custom_crew_members";
+const DELETED_MEMBERS_KEY = "cmms_plant_deleted_member_ids";
+
+export function getDeletedMemberIds(): string[] {
+  if (typeof window === "undefined") return [];
+  try {
+    const raw = localStorage.getItem(DELETED_MEMBERS_KEY);
+    if (!raw) return [];
+    const parsed = JSON.parse(raw);
+    return Array.isArray(parsed) ? parsed : [];
+  } catch {
+    return [];
+  }
+}
+
+export function addDeletedMemberId(memberId: string) {
+  if (typeof window === "undefined" || !memberId) return;
+  try {
+    const current = getDeletedMemberIds();
+    if (!current.includes(memberId)) {
+      current.push(memberId);
+      localStorage.setItem(DELETED_MEMBERS_KEY, JSON.stringify(current));
+    }
+  } catch (e) {
+    console.warn("Could not save deleted member ID to localStorage:", e);
+  }
+}
 
 export function getCustomLocalCrew(): PlantMember[] {
   if (typeof window === "undefined") return [];
@@ -139,6 +165,7 @@ export function addCustomLocalCrewMember(member: PlantMember) {
 }
 
 export function removeCustomLocalCrewMember(memberId: string) {
+  addDeletedMemberId(memberId);
   const current = getCustomLocalCrew();
   const filtered = current.filter((m) => m.id !== memberId);
   saveCustomLocalCrew(filtered);
@@ -155,8 +182,8 @@ export async function ensureUserSynced(
 
   try {
     const rawFullName =
-      (user.user_metadata?.full_name as string) ||
-      (user.user_metadata?.name as string) ||
+      (user.user_metadata?.["full_name"] as string) ||
+      (user.user_metadata?.["name"] as string) ||
       formatNameFromEmail(user.email);
 
     // 1. Check / upsert profile
@@ -234,12 +261,13 @@ export function buildCombinedTeamMembers(
   currentUser: User | null,
 ): TeamMember[] {
   const map = new Map<string, TeamMember>();
+  const deletedSet = new Set(getDeletedMemberIds());
 
   // 1. Add current user if authenticated
   if (currentUser) {
     const currentName =
-      (currentUser.user_metadata?.full_name as string) ||
-      (currentUser.user_metadata?.name as string) ||
+      (currentUser.user_metadata?.["full_name"] as string) ||
+      (currentUser.user_metadata?.["name"] as string) ||
       formatNameFromEmail(currentUser.email);
     map.set(currentUser.id, {
       id: currentUser.id,
@@ -250,7 +278,7 @@ export function buildCombinedTeamMembers(
 
   // 2. Add DB members
   for (const m of dbMembers) {
-    if (m && m.id && m.full_name) {
+    if (m && m.id && m.full_name && !deletedSet.has(m.id)) {
       map.set(m.id, {
         id: m.id,
         full_name: m.full_name,
@@ -262,7 +290,7 @@ export function buildCombinedTeamMembers(
   // 3. Add custom local crew members
   const localCustom = getCustomLocalCrew();
   for (const c of localCustom) {
-    if (!map.has(c.id)) {
+    if (!map.has(c.id) && !deletedSet.has(c.id)) {
       map.set(c.id, {
         id: c.id,
         full_name: c.full_name,
@@ -273,7 +301,7 @@ export function buildCombinedTeamMembers(
 
   // 4. Add default plant crew members
   for (const crew of DEFAULT_PLANT_CREW) {
-    if (!map.has(crew.id)) {
+    if (!map.has(crew.id) && !deletedSet.has(crew.id)) {
       map.set(crew.id, {
         id: crew.id,
         full_name: crew.full_name,

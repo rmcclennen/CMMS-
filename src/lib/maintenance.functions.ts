@@ -2,6 +2,7 @@ import { createServerFn } from "@tanstack/react-start";
 import { createClient } from "@supabase/supabase-js";
 import { z } from "zod";
 import type { Database } from "@/integrations/supabase/types";
+import type { Json } from "@/integrations/supabase/types";
 import {
   generateComprehensiveMaintenanceData,
   type MaintenanceLookupData,
@@ -11,8 +12,9 @@ const DEFAULT_SUPABASE_URL = "https://wylqoosdanaltciwrwht.supabase.co";
 const DEFAULT_SUPABASE_PUBLISHABLE_KEY = "sb_publishable_hOeYd2G3LdsYfOyy4ajovA_vYM4o6mz";
 
 function getSupabaseClient() {
-  const envUrl = process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL;
-  const envKey = process.env.SUPABASE_PUBLISHABLE_KEY || process.env.VITE_SUPABASE_PUBLISHABLE_KEY;
+  const envUrl = process.env["SUPABASE_URL"] || process.env["VITE_SUPABASE_URL"];
+  const envKey =
+    process.env["SUPABASE_PUBLISHABLE_KEY"] || process.env["VITE_SUPABASE_PUBLISHABLE_KEY"];
   const url = envUrl && envUrl.startsWith("http") ? envUrl : DEFAULT_SUPABASE_URL;
   const key = envKey && envKey.length > 20 ? envKey : DEFAULT_SUPABASE_PUBLISHABLE_KEY;
   return createClient<Database>(url, key);
@@ -110,7 +112,7 @@ Always include specific manufacturer O&M manuals or technical documentation entr
 
         if (response.text) {
           const parsed = JSON.parse(response.text);
-          result = ResearchSchema.parse(parsed);
+          result = ResearchSchema.parse(parsed) as MaintenanceLookupData;
         }
       } catch (geminiErr) {
         console.warn("Gemini API lookup attempt:", geminiErr);
@@ -138,7 +140,7 @@ Always include specific manufacturer O&M manuals or technical documentation entr
           output: Output.object({ schema: ResearchSchema }),
           prompt: `Generate maintenance program for ${asset.name} (${asset.manufacturer} ${asset.model})${feedbackText}`,
         });
-        result = output;
+        result = output as MaintenanceLookupData;
       } catch (gatewayErr) {
         console.warn("Lovable AI gateway attempt:", gatewayErr);
       }
@@ -158,9 +160,9 @@ Always include specific manufacturer O&M manuals or technical documentation entr
       .insert({
         asset_id: data.assetId,
         summary: result.summary,
-        intervals: result.intervals,
-        parts: result.parts,
-        sources: result.sources,
+        intervals: result.intervals as unknown as Json,
+        parts: result.parts as unknown as Json,
+        sources: result.sources as unknown as Json,
       })
       .select()
       .single();
@@ -172,9 +174,9 @@ Always include specific manufacturer O&M manuals or technical documentation entr
         asset_id: data.assetId,
         created_at: new Date().toISOString(),
         summary: result.summary,
-        intervals: result.intervals,
-        parts: result.parts,
-        sources: result.sources,
+        intervals: result.intervals as unknown as Json,
+        parts: result.parts as unknown as Json,
+        sources: result.sources as unknown as Json,
       };
     }
 

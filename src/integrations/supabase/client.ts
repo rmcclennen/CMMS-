@@ -32,32 +32,28 @@ function createSupabaseFetch(supabaseKey: string): typeof fetch {
 const DEFAULT_SUPABASE_URL = "https://wylqoosdanaltciwrwht.supabase.co";
 const DEFAULT_SUPABASE_PUBLISHABLE_KEY = "sb_publishable_hOeYd2G3LdsYfOyy4ajovA_vYM4o6mz";
 
-function isValidHttpUrl(value: unknown): value is string {
-  if (typeof value !== "string" || !value) return false;
-  try {
-    const url = new URL(value);
-    return url.protocol === "http:" || url.protocol === "https:";
-  } catch {
-    return false;
-  }
-}
-
-function isValidKey(value: unknown): value is string {
-  return typeof value === "string" && value.length > 20;
-}
-
 function createSupabaseClient() {
   // Use import.meta.env for client-side (Vite build-time replacement)
   // Fall back to process.env for SSR (server-side rendering)
   const envUrl =
-    import.meta.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL;
-  const envKey =
-    import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY ||
-    process.env.SUPABASE_PUBLISHABLE_KEY ||
-    process.env.VITE_SUPABASE_PUBLISHABLE_KEY;
+    (typeof import.meta !== "undefined" && import.meta.env
+      ? import.meta.env["VITE_SUPABASE_URL"]
+      : undefined) ||
+    (typeof process !== "undefined" && process.env
+      ? process.env["VITE_SUPABASE_URL"] || process.env["SUPABASE_URL"]
+      : undefined);
 
-  const SUPABASE_URL = isValidHttpUrl(envUrl) ? envUrl : DEFAULT_SUPABASE_URL;
-  const SUPABASE_PUBLISHABLE_KEY = isValidKey(envKey) ? envKey : DEFAULT_SUPABASE_PUBLISHABLE_KEY;
+  const envKey =
+    (typeof import.meta !== "undefined" && import.meta.env
+      ? import.meta.env["VITE_SUPABASE_PUBLISHABLE_KEY"]
+      : undefined) ||
+    (typeof process !== "undefined" && process.env
+      ? process.env["VITE_SUPABASE_PUBLISHABLE_KEY"] || process.env["SUPABASE_PUBLISHABLE_KEY"]
+      : undefined);
+
+  const SUPABASE_URL = envUrl && envUrl.startsWith("http") ? envUrl : DEFAULT_SUPABASE_URL;
+  const SUPABASE_PUBLISHABLE_KEY =
+    envKey && envKey.length > 10 ? envKey : DEFAULT_SUPABASE_PUBLISHABLE_KEY;
 
   return createClient<Database>(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY, {
     global: {

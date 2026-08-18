@@ -1,3 +1,4 @@
+import type { Json } from "@/integrations/supabase/types";
 import * as React from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
@@ -42,21 +43,21 @@ import {
 
 export interface StoredPart {
   name: string;
-  part_number?: string;
-  notes?: string;
-  manufacturer?: string;
-  qty?: string;
-  where_to_buy?: string;
+  part_number?: string | undefined;
+  notes?: string | undefined;
+  manufacturer?: string | undefined;
+  qty?: string | undefined;
+  where_to_buy?: string | undefined;
 }
 
 interface EditAssetPartsDialogProps {
   assetId: string;
   assetName: string;
-  manufacturer?: string | null;
-  model?: string | null;
+  manufacturer?: string | null | undefined;
+  model?: string | null | undefined;
   currentParts: StoredPart[];
-  trigger?: React.ReactNode;
-  defaultTab?: "manage" | "feedback";
+  trigger?: React.ReactNode | undefined;
+  defaultTab?: "manage" | "feedback" | undefined;
 }
 
 const COMMON_FEEDBACK_PRESETS = [
@@ -121,7 +122,7 @@ export function EditAssetPartsDialog({
         if (existing) {
           const { error } = await supabase
             .from("asset_maintenance_info")
-            .update({ parts: updated })
+            .update({ parts: updated as unknown as Json })
             .eq("id", existing.id);
           if (error) throw error;
         } else {
@@ -129,7 +130,7 @@ export function EditAssetPartsDialog({
             asset_id: assetId,
             summary: "Parts list customized by operator.",
             intervals: [],
-            parts: updated,
+            parts: updated as unknown as Json,
             sources: [],
           });
           if (error) throw error;
@@ -175,6 +176,7 @@ export function EditAssetPartsDialog({
 
   const handleStartEdit = (index: number) => {
     const p = partsList[index];
+    if (!p) return;
     setEditingIndex(index);
     setEditName(p.name);
     setEditPartNumber(p.part_number || "");

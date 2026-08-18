@@ -26,7 +26,7 @@ export const addTeamMember = createServerFn({ method: "POST" })
   .handler(async ({ data }) => {
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
 
-    let memberId = crypto.randomUUID();
+    let memberId: string = crypto.randomUUID();
     const trimmedEmail = data.email?.trim() || null;
     const trimmedName = data.fullName.trim();
     const trimmedPhone = data.phone?.trim() || null;
@@ -40,8 +40,9 @@ export const addTeamMember = createServerFn({ method: "POST" })
         .eq("email", trimmedEmail)
         .limit(1);
 
-      if (existingProfiles && existingProfiles.length > 0 && existingProfiles[0].id) {
-        memberId = existingProfiles[0].id;
+      const existingId = existingProfiles?.[0]?.id;
+      if (existingId) {
+        memberId = existingId;
       } else {
         // Create an auth user via Admin API
         try {
@@ -262,7 +263,7 @@ export const getTeamRoster = createServerFn({ method: "GET" })
  */
 export const deleteTeamMember = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .inputValidator((data) => z.object({ userId: z.string().uuid() }).parse(data))
+  .inputValidator((data) => z.object({ userId: z.string().min(1) }).parse(data))
   .handler(async ({ data, context }) => {
     if (data.userId === context.userId) {
       throw new Error("You cannot delete your own account.");
@@ -270,37 +271,63 @@ export const deleteTeamMember = createServerFn({ method: "POST" })
 
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
 
-    const { data: myRoles } = await supabaseAdmin
-      .from("user_roles")
-      .select("role")
-      .eq("user_id", context.userId);
+    const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(
+      data.userId,
+    );
 
-    const allowed =
-      !myRoles ||
-      myRoles.length === 0 ||
-      myRoles.some((r) => r.role === "admin" || r.role === "manager" || r.role === "supervisor");
+    if (isUuid) {
+      try {
+        const { data: myRoles } = await supabaseAdmin
+          .from("user_roles")
+          .select("role")
+          .eq("user_id", context.userId);
 
-    if (!allowed) throw new Error("Only admins or managers can delete users.");
+        const allowed =
+          !myRoles ||
+          myRoles.length === 0 ||
+          myRoles.some(
+            (r) => r.role === "admin" || r.role === "manager" || r.role === "supervisor",
+          );
 
-    await supabaseAdmin
-      .from("pm_schedules")
-      .update({ assigned_to: null, assigned_label: null })
-      .eq("assigned_to", data.userId);
-    await supabaseAdmin
-      .from("work_orders")
-      .update({ assigned_to: null })
-      .eq("assigned_to", data.userId);
-    await supabaseAdmin.from("user_roles").delete().eq("user_id", data.userId);
-    await supabaseAdmin.from("team_directory").delete().eq("id", data.userId);
-    await supabaseAdmin.from("profiles").delete().eq("id", data.userId);
+        if (!allowed) throw new Error("Only admins or managers can delete users.");
 
-    try {
-      const { error: authError } = await supabaseAdmin.auth.admin.deleteUser(data.userId);
-      if (authError && !/not found/i.test(authError.message)) {
-        console.warn("Auth delete user info:", authError.message);
+        await supabaseAdmin
+          .from("pm_schedules")
+          .update({ assigned_to: null, assigned_label: null })
+          .eq("assigned_to", data.userId);
+
+        await supabaseAdmin
+          .from("work_orders")
+          .update({ assigned_to: null })
+          .eq("assigned_to", data.userId);
+
+        await supabaseAdmin.from("user_roles").delete().eq("user_id", data.userId);
+        await supabaseAdmin.from("team_directory").delete().eq("id", data.userId);
+        await supabaseAdmin
+          .from("company_members")
+          .delete()
+          .eq("user_id", data.userId)
+          .catch?.(() => {});
+
+        const { error: profErr } = await supabaseAdmin
+          .from("profiles")
+          .delete()
+          .eq("id", data.userId);
+        if (profErr) {
+          console.warn("Profile row deletion skipped/handled:", profErr.message);
+        }
+      } catch (e) {
+        console.warn("DB team member cleanup notice:", e);
       }
-    } catch (e) {
-      console.warn("Auth delete exception:", e);
+
+      try {
+        const { error: authError } = await supabaseAdmin.auth.admin.deleteUser(data.userId);
+        if (authError && !/not found/i.test(authError.message)) {
+          console.warn("Auth delete user info:", authError.message);
+        }
+      } catch (e) {
+        console.warn("Auth delete exception:", e);
+      }
     }
 
     return { ok: true };

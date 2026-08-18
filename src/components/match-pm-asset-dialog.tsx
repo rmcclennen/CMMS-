@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import {
@@ -22,7 +22,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import {
-  batchMatchPmsToAssets,
+  batchMatchPmsToAssetsAsync,
   findMatchingPmsForAsset,
   MatchableAsset,
   MatchablePm,
@@ -84,6 +84,8 @@ export function MatchPmAssetDialog({
   const [confidenceFilter, setConfidenceFilter] = useState<string>("all");
   const [selectedMatchIds, setSelectedMatchIds] = useState<Set<string>>(new Set());
   const [assetOverrides, setAssetOverrides] = useState<Record<string, string>>({});
+  const [visibleSmartCount, setVisibleSmartCount] = useState(50);
+  const [visibleUnlinkedCount, setVisibleUnlinkedCount] = useState(50);
 
   // Fetch all active PM schedules
   const pmsQuery = useQuery({
@@ -129,10 +131,41 @@ export function MatchPmAssetDialog({
     return map;
   }, [assets]);
 
-  // Compute Smart Batch Matches for all PMs
-  const allSmartMatches = useMemo(() => {
-    if (!isOpen || pms.length === 0 || assets.length === 0) return [];
-    return batchMatchPmsToAssets(pms, assets, { unlinkedOnly: false, minConfidence: "low" });
+  // Compute Smart Batch Matches for all PMs — chunked/async so the dialog never freezes
+  const [allSmartMatches, setAllSmartMatches] = useState<PmAssetMatch[]>([]);
+  const [matchProgress, setMatchProgress] = useState<{ done: number; total: number } | null>(null);
+
+  useEffect(() => {
+    if (!isOpen || pms.length === 0 || assets.length === 0) {
+      setAllSmartMatches([]);
+      setMatchProgress(null);
+      return;
+    }
+
+    let cancelled = false;
+    setMatchProgress({ done: 0, total: pms.length });
+
+    batchMatchPmsToAssetsAsync(pms, assets, {
+      unlinkedOnly: false,
+      minConfidence: "low",
+      chunkSize: 20,
+      shouldCancel: () => cancelled,
+      onProgress: (done, total) => {
+        if (!cancelled) setMatchProgress({ done, total });
+      },
+    })
+      .then((matches) => {
+        if (cancelled) return;
+        setAllSmartMatches(matches);
+        setMatchProgress(null);
+      })
+      .catch(() => {
+        if (!cancelled) setMatchProgress(null);
+      });
+
+    return () => {
+      cancelled = true;
+    };
   }, [isOpen, pms, assets]);
 
   // Filter smart matches
@@ -151,6 +184,11 @@ export function MatchPmAssetDialog({
     });
   }, [allSmartMatches, confidenceFilter, searchFilter]);
 
+  const visibleSmartMatches = useMemo(
+    () => filteredSmartMatches.slice(0, visibleSmartCount),
+    [filteredSmartMatches, visibleSmartCount],
+  );
+
   // Unlinked PMs
   const unlinkedPms = useMemo(() => {
     return pms.filter((p) => !p.asset_id);
@@ -164,6 +202,16 @@ export function MatchPmAssetDialog({
       (p) => p.title.toLowerCase().includes(q) || (p.tasks && p.tasks.toLowerCase().includes(q)),
     );
   }, [unlinkedPms, searchFilter]);
+
+  const visibleUnlinkedPms = useMemo(
+    () => filteredUnlinkedPms.slice(0, visibleUnlinkedCount),
+    [filteredUnlinkedPms, visibleUnlinkedCount],
+  );
+
+  useEffect(() => {
+    setVisibleSmartCount(50);
+    setVisibleUnlinkedCount(50);
+  }, [searchFilter, confidenceFilter, activeTab]);
 
   // Matches for specific target asset (if in targetAsset mode)
   const targetAssetMatches = useMemo(() => {
@@ -189,7 +237,7 @@ export function MatchPmAssetDialog({
       const results = await Promise.all(promises);
       const errors = results.filter((r) => r.error);
       if (errors.length > 0) {
-        throw new Error(errors[0].error?.message || "Failed to link some PM schedules.");
+        throw new Error(errors[0]?.error?.message || "Failed to link some PM schedules.");
       }
     },
     onSuccess: (_, variables) => {
@@ -308,10 +356,18 @@ export function MatchPmAssetDialog({
             </div>
             <div className="rounded-md border bg-background/80 p-2">
               <span className="text-muted-foreground">Smart Matches:</span>
-              <span className="ml-1.5 font-mono font-bold text-primary">
-                {allSmartMatches.length}
-              </span>
+              {matchProgress ? (
+                <span className="ml-1.5 inline-flex items-center gap-1 font-mono font-bold text-primary">
+                  <RefreshCw className="size-3 animate-spin" />
+                  {Math.round((matchProgress.done / Math.max(matchProgress.total, 1)) * 100)}%
+                </span>
+              ) : (
+                <span className="ml-1.5 font-mono font-bold text-primary">
+                  {allSmartMatches.length}
+                </span>
+              )}
             </div>
+
             <div className="rounded-md border bg-background/80 p-2">
               <span className="text-muted-foreground">High Confidence:</span>
               <span className="ml-1.5 font-mono font-bold text-emerald-600 dark:text-emerald-400">
@@ -491,7 +547,7 @@ export function MatchPmAssetDialog({
                     <span>Showing {filteredSmartMatches.length} match suggestions</span>
                   </div>
 
-                  {filteredSmartMatches.map((m) => {
+                  {visibleSmartMatches.map((m) => {
                     const isSelected = selectedMatchIds.has(m.pmId);
                     const chosenAssetId = assetOverrides[m.pmId] || m.suggestedAssetId;
                     const chosenAsset = assetMap.get(chosenAssetId);
@@ -592,6 +648,18 @@ export function MatchPmAssetDialog({
                       </div>
                     );
                   })}
+                  {visibleSmartCount < filteredSmartMatches.length && (
+                    <div className="flex justify-center pt-2">
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setVisibleSmartCount((count) => count + 50)}
+                      >
+                        Show 50 more
+                      </Button>
+                    </div>
+                  )}
                 </div>
               ) : (
                 <div className="rounded-lg border border-dashed p-8 text-center space-y-2">
@@ -619,7 +687,7 @@ export function MatchPmAssetDialog({
 
               {filteredUnlinkedPms.length > 0 ? (
                 <div className="space-y-2.5">
-                  {filteredUnlinkedPms.map((pm) => (
+                  {visibleUnlinkedPms.map((pm) => (
                     <div
                       key={pm.id}
                       className="rounded-lg border bg-card p-3 flex flex-col sm:flex-row sm:items-center justify-between gap-3"
@@ -660,6 +728,18 @@ export function MatchPmAssetDialog({
                       </div>
                     </div>
                   ))}
+                  {visibleUnlinkedCount < filteredUnlinkedPms.length && (
+                    <div className="flex justify-center pt-2">
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setVisibleUnlinkedCount((count) => count + 50)}
+                      >
+                        Show 50 more
+                      </Button>
+                    </div>
+                  )}
                 </div>
               ) : (
                 <div className="rounded-lg border border-dashed p-8 text-center space-y-2">

@@ -34,28 +34,15 @@ function createSupabaseFetch(supabaseKey: string): typeof fetch {
 const DEFAULT_SUPABASE_URL = "https://wylqoosdanaltciwrwht.supabase.co";
 const DEFAULT_SUPABASE_PUBLISHABLE_KEY = "sb_publishable_hOeYd2G3LdsYfOyy4ajovA_vYM4o6mz";
 
-function isValidHttpUrl(value: unknown): value is string {
-  if (typeof value !== "string" || !value) return false;
-  try {
-    const url = new URL(value);
-    return url.protocol === "http:" || url.protocol === "https:";
-  } catch {
-    return false;
-  }
-}
-
-function isValidKey(value: unknown): value is string {
-  return typeof value === "string" && value.length > 20;
-}
-
 export const requireSupabaseAuth = createMiddleware({ type: "function" }).server(
   async ({ next }) => {
-    const envUrl = process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL;
+    const envUrl = process.env["SUPABASE_URL"] || process.env["VITE_SUPABASE_URL"];
     const envKey =
-      process.env.SUPABASE_PUBLISHABLE_KEY || process.env.VITE_SUPABASE_PUBLISHABLE_KEY;
+      process.env["SUPABASE_PUBLISHABLE_KEY"] || process.env["VITE_SUPABASE_PUBLISHABLE_KEY"];
 
-    const SUPABASE_URL = isValidHttpUrl(envUrl) ? envUrl : DEFAULT_SUPABASE_URL;
-    const SUPABASE_PUBLISHABLE_KEY = isValidKey(envKey) ? envKey : DEFAULT_SUPABASE_PUBLISHABLE_KEY;
+    const SUPABASE_URL = envUrl && envUrl.startsWith("http") ? envUrl : DEFAULT_SUPABASE_URL;
+    const SUPABASE_PUBLISHABLE_KEY =
+      envKey && envKey.length > 10 ? envKey : DEFAULT_SUPABASE_PUBLISHABLE_KEY;
 
     const request = getRequest();
 

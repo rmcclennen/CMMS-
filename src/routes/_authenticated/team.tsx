@@ -15,8 +15,11 @@ import {
   addCustomLocalCrewMember,
   removeCustomLocalCrewMember,
   getCustomLocalCrew,
+  saveCustomLocalCrew,
   ensureUserSynced,
   formatNameFromEmail,
+  getDeletedMemberIds,
+  addDeletedMemberId,
 } from "@/lib/team-sync";
 
 import { useMyRoles } from "@/hooks/use-my-roles";
@@ -178,13 +181,16 @@ function TeamPage() {
   // Fetch Directory, User Roles, and Profiles
   const teamQuery = useQuery({
     queryKey: ["team-roles", currentUser?.id],
+    staleTime: 30_000,
     queryFn: async (): Promise<MemberData[]> => {
-      // 1. Ensure current user profile is synced to database
+      // 1. Ensure current user profile is synced to database in background
       if (currentUser) {
-        await ensureUserSynced(currentUser).catch(() => {});
+        ensureUserSynced(currentUser).catch(() => {});
       }
 
+      const deletedSet = new Set(getDeletedMemberIds());
       let dbRoster: MemberData[] = [];
+
       try {
         const roster = await getTeamRoster();
         if (roster && Array.isArray(roster) && roster.length > 0) {
@@ -237,11 +243,11 @@ function TeamPage() {
       // Merge into a comprehensive plant directory map
       const map = new Map<string, MemberData>();
 
-      // 1. Add current authenticated user
-      if (currentUser) {
+      // 1. Add current authenticated user if not deleted
+      if (currentUser && !deletedSet.has(currentUser.id)) {
         const currentName =
-          (currentUser.user_metadata?.full_name as string) ||
-          (currentUser.user_metadata?.name as string) ||
+          (currentUser.user_metadata?.["full_name"] as string) ||
+          (currentUser.user_metadata?.["name"] as string) ||
           formatNameFromEmail(currentUser.email);
 
         const existingDbUser = dbRoster.find((m) => m.id === currentUser.id);
@@ -263,7 +269,7 @@ function TeamPage() {
 
       // 2. Add database members
       for (const m of dbRoster) {
-        if (!map.has(m.id)) {
+        if (!map.has(m.id) && !deletedSet.has(m.id)) {
           map.set(m.id, m);
         }
       }
@@ -271,7 +277,7 @@ function TeamPage() {
       // 3. Add custom local crew members
       const customLocal = getCustomLocalCrew();
       for (const c of customLocal) {
-        if (!map.has(c.id)) {
+        if (!map.has(c.id) && !deletedSet.has(c.id)) {
           map.set(c.id, {
             id: c.id,
             full_name: c.full_name,
@@ -285,7 +291,7 @@ function TeamPage() {
 
       // 4. Add standard plant maintenance crew members
       for (const crew of DEFAULT_PLANT_CREW) {
-        if (!map.has(crew.id)) {
+        if (!map.has(crew.id) && !deletedSet.has(crew.id)) {
           map.set(crew.id, {
             id: crew.id,
             full_name: crew.full_name,
@@ -441,7 +447,7 @@ function TeamPage() {
       if (inviteMember) {
         addCustomLocalCrewMember({
           id: memberId,
-          full_name: inviteMember.full_name,
+          full_name: inviteMember.full_name ?? "",
           email: cleanEmail,
           phone: inviteMember.phone,
           carrier: inviteMember.carrier,
@@ -475,11 +481,12 @@ function TeamPage() {
 
   // Full server-side removal (roles, profile, directory, and the login itself)
   const cleanUserData = async (memberId: string) => {
+    addDeletedMemberId(memberId);
     removeCustomLocalCrewMember(memberId);
     try {
       await removeTeamMember({ data: { userId: memberId } });
     } catch (err) {
-      console.warn("Server removeTeamMember error:", err);
+      console.warn("Server removeTeamMember notice:", err);
     }
   };
 

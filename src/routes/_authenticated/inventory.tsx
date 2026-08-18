@@ -447,9 +447,7 @@ function InventoryPage() {
                   name: part.name,
                   part_number: part.part_number,
                   manufacturer: part.manufacturer,
-                  qty: isLowStock(part)
-                    ? Math.max(1, (part.reorder_point ?? 5) - part.qty_on_hand)
-                    : 1,
+                  qty: isLowStock(part) ? Math.max(1, (part.min_qty ?? 5) - part.qty_on_hand) : 1,
                   where_to_buy: part.where_to_buy,
                   unit_cost: part.unit_cost,
                 }}
