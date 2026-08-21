@@ -1,6 +1,5 @@
-import { defineConfig, loadEnv, mergeConfig } from "vite";
+import { defineConfig, loadEnv } from "vite";
 import { tanstackStart } from "@tanstack/react-start/plugin/vite";
-import { devtools } from "@tanstack/devtools-vite";
 import tailwindcss from "@tailwindcss/vite";
 import tsConfigPaths from "vite-tsconfig-paths";
 import viteReact from "@vitejs/plugin-react";
@@ -16,9 +15,6 @@ export default defineConfig(({ command, mode }) => {
   }
 
   const plugins: any[] = [];
-  if (mode === "development") {
-    plugins.push(devtools({ logging: false, removeDevtoolsOnBuild: false }));
-  }
   plugins.push(tailwindcss());
   plugins.push(tsConfigPaths({ projects: ["./tsconfig.json"] }));
   plugins.push(
